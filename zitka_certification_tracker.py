@@ -1,7 +1,5 @@
 import random
-import textwrap
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -20,714 +18,719 @@ st.set_page_config(
 
 
 # =========================================================
-# HELPERS
+# GLOBAL STYLE
 # =========================================================
 
-def html(content):
-    st.markdown(
-        textwrap.dedent(content).strip(),
-        unsafe_allow_html=True,
-    )
-
-
-def metric_card(label, value, note):
-    return textwrap.dedent(
-        f"""
-        <div class="metric-box">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-sub">{note}</div>
-        </div>
-        """
-    ).strip()
-
-
-def issue_bar(label, value, max_value):
-    width = 0 if max_value == 0 else value / max_value * 100
-
-    return textwrap.dedent(
-        f"""
-        <div class="insight-card">
-            <div class="insight-head">
-                <div class="insight-name">{label}</div>
-                <div class="insight-value">{value:,}</div>
-            </div>
-
-            <div class="bar-track">
-                <div
-                    class="bar-fill"
-                    style="width:{width:.1f}%"
-                ></div>
-            </div>
-        </div>
-        """
-    ).strip()
-
-
-def to_csv_bytes(df):
-    return df.to_csv(index=False).encode("utf-8-sig")
-
-
-def percent(part, total):
-    if total == 0:
-        return 0
-    return part / total * 100
-
-
-# =========================================================
-# STYLING
-# =========================================================
-
-st.markdown(
+st.html(
     """
     <style>
-
-    :root {
-        --ink: #402E38;
-        --muted: #806A75;
-        --plum: #7A3E61;
-        --berry: #AA557B;
-        --rose: #EFA8BC;
-        --peach: #F7C4AE;
-        --lavender: #DCCAF4;
-        --cream: #FFF9F6;
-        --line: rgba(122,62,97,0.13);
-        --white: rgba(255,255,255,0.88);
-    }
-
-    .stApp {
-        background:
-            radial-gradient(
-                circle at 8% 8%,
-                rgba(247,196,174,0.34),
-                transparent 24%
-            ),
-            radial-gradient(
-                circle at 90% 12%,
-                rgba(220,202,244,0.34),
-                transparent 25%
-            ),
-            radial-gradient(
-                circle at 80% 80%,
-                rgba(239,168,188,0.20),
-                transparent 24%
-            ),
-            linear-gradient(
-                180deg,
-                #FFFDFC 0%,
-                #FFF7F9 48%,
-                #FFF9F6 100%
-            );
-
-        color: var(--ink);
-    }
-
-    .block-container {
-        max-width: 1240px;
-        padding-top: 5.4rem;
-        padding-bottom: 4rem;
-    }
-
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    h1, h2, h3 {
-        color: var(--ink);
-    }
-
-    .hero-shell {
-        position: relative;
-        overflow: hidden;
-        border-radius: 28px;
-        border: 1px solid var(--line);
-
-        padding: 2.25rem;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.96),
-                rgba(255,239,244,0.90)
-            );
-
-        box-shadow:
-            0 18px 42px rgba(113,62,86,0.10);
-
-        margin-bottom: 1rem;
-    }
-
-    .hero-shell::after {
-        content: "";
-        position: absolute;
-
-        width: 230px;
-        height: 230px;
-
-        right: -70px;
-        top: -75px;
-
-        border-radius: 50%;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(239,168,188,0.45),
-                rgba(220,202,244,0.42)
-            );
-    }
-
-    .hero-kicker {
-        position: relative;
-        z-index: 2;
-
-        display: inline-block;
-
-        padding: 0.42rem 0.72rem;
-
-        border-radius: 999px;
-
-        background: rgba(122,62,97,0.08);
-
-        color: var(--plum);
-
-        font-size: 0.78rem;
-        font-weight: 700;
-
-        margin-bottom: 0.9rem;
-    }
-
-    .hero-title {
-        position: relative;
-        z-index: 2;
-
-        margin: 0;
-
-        max-width: 760px;
-
-        color: var(--ink);
-
-        font-size: clamp(
-            2.45rem,
-            5vw,
-            4.2rem
-        );
-
-        line-height: 1;
-        letter-spacing: -0.035em;
-        font-weight: 800;
-    }
-
-    .hero-copy {
-        position: relative;
-        z-index: 2;
-
-        margin-top: 1rem;
-
-        max-width: 760px;
-
-        color: var(--muted);
-
-        font-size: 1.02rem;
-        line-height: 1.7;
-    }
-
-    .hero-tags {
-        position: relative;
-        z-index: 2;
-
-        display: flex;
-        flex-wrap: wrap;
-
-        gap: 0.55rem;
-
-        margin-top: 1.15rem;
-    }
-
-    .hero-tag {
-        display: inline-block;
-
-        padding: 0.45rem 0.72rem;
-
-        border-radius: 999px;
-
-        background: rgba(255,255,255,0.82);
-
-        border: 1px solid var(--line);
-
-        color: #674C59;
-
-        font-size: 0.82rem;
-        font-weight: 600;
-    }
-
-    .soft-note {
-        color: #8A7480;
-
-        font-size: 0.86rem;
-        line-height: 1.5;
-
-        margin: 0.8rem 0 1.6rem;
-    }
-
-    .section-label {
-        color: var(--berry);
-
-        font-size: 0.76rem;
-        font-weight: 800;
-
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-
-        margin-bottom: 0.25rem;
-    }
-
-    .section-title {
-        color: var(--ink);
-
-        margin: 0;
-
-        font-size: 2rem;
-        line-height: 1.15;
-
-        letter-spacing: -0.025em;
-    }
-
-    .section-copy {
-        color: var(--muted);
-
-        line-height: 1.65;
-
-        margin-top: 0.45rem;
-        margin-bottom: 1.1rem;
-    }
-
-    .step-grid {
-        display: grid;
-
-        grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-
-        gap: 0.85rem;
-
-        margin: 1rem 0 1.6rem;
-    }
-
-    .step-card {
-        padding: 1rem 1.05rem;
-
-        min-height: 112px;
-
-        border-radius: 20px;
-
-        border: 1px solid var(--line);
-
-        background:
-            rgba(255,255,255,0.87);
-
-        box-shadow:
-            0 9px 22px rgba(113,62,86,0.06);
-    }
-
-    .step-num {
-        color: var(--berry);
-
-        font-size: 0.75rem;
-        font-weight: 800;
-
-        margin-bottom: 0.45rem;
-    }
-
-    .step-name {
-        color: var(--ink);
-
-        font-size: 0.96rem;
-        font-weight: 750;
-    }
-
-    .step-desc {
-        color: var(--muted);
-
-        margin-top: 0.25rem;
-
-        font-size: 0.8rem;
-        line-height: 1.45;
-    }
-
-    .status-row {
-        display: flex;
-        flex-wrap: wrap;
-
-        gap: 0.55rem;
-
-        margin: 0.6rem 0 0.9rem;
-    }
-
-    .status-pill {
-        display: inline-block;
-
-        padding: 0.45rem 0.7rem;
-
-        border-radius: 999px;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,255,255,0.9),
-                rgba(252,235,241,0.82)
-            );
-
-        border: 1px solid var(--line);
-
-        color: #6B5160;
-
-        font-size: 0.78rem;
-        font-weight: 700;
-    }
-
-    .metric-grid {
-        display: grid;
-
-        grid-template-columns:
-            repeat(5, minmax(0, 1fr));
-
-        gap: 0.85rem;
-
-        margin: 1rem 0 1.4rem;
-    }
-
-    .metric-box {
-        position: relative;
-        overflow: hidden;
-
-        min-height: 118px;
-
-        padding: 1rem 1.05rem;
-
-        border-radius: 22px;
-
-        border: 1px solid var(--line);
-
-        background:
-            rgba(255,255,255,0.9);
-
-        box-shadow:
-            0 10px 24px rgba(113,62,86,0.07);
-    }
-
-    .metric-box::before {
-        content: "";
-
-        position: absolute;
-
-        width: 62px;
-        height: 62px;
-
-        right: -16px;
-        top: -15px;
-
-        border-radius: 50%;
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(239,168,188,0.43),
-                rgba(220,202,244,0.42)
-            );
-    }
-
-    .metric-label {
-        position: relative;
-        z-index: 2;
-
-        color: #8A7480;
-
-        font-size: 0.78rem;
-        font-weight: 650;
-    }
-
-    .metric-value {
-        position: relative;
-        z-index: 2;
-
-        margin-top: 0.35rem;
-
-        color: var(--plum);
-
-        font-size: 2rem;
-        font-weight: 800;
-
-        line-height: 1;
-    }
-
-    .metric-sub {
-        position: relative;
-        z-index: 2;
-
-        margin-top: 0.5rem;
-
-        color: #99828D;
-
-        font-size: 0.72rem;
-    }
-
-    .insight-card {
-        padding: 1rem 1.05rem;
-
-        border-radius: 20px;
-
-        border: 1px solid var(--line);
-
-        background:
-            rgba(255,255,255,0.86);
-
-        box-shadow:
-            0 8px 21px rgba(113,62,86,0.055);
-
-        margin-bottom: 0.7rem;
-    }
-
-    .insight-head {
-        display: flex;
-
-        justify-content:
-            space-between;
-
-        align-items: center;
-
-        gap: 1rem;
-
-        margin-bottom: 0.55rem;
-    }
-
-    .insight-name {
-        color: var(--ink);
-
-        font-size: 0.87rem;
-        font-weight: 700;
-    }
-
-    .insight-value {
-        color: var(--plum);
-
-        font-size: 0.83rem;
-        font-weight: 800;
-    }
-
-    .bar-track {
-        width: 100%;
-        height: 9px;
-
-        border-radius: 999px;
-
-        background: #F1E8EC;
-
-        overflow: hidden;
-    }
-
-    .bar-fill {
-        height: 100%;
-
-        border-radius: 999px;
-
-        background:
-            linear-gradient(
-                90deg,
-                #B75D84,
-                #E9A3B7,
-                #D6B9EE
-            );
-    }
-
-    div[data-testid="stDataFrame"] {
-        border-radius: 18px;
-
-        border: 1px solid var(--line);
-
-        overflow: hidden;
-
-        background: white;
-
-        box-shadow:
-            0 8px 20px rgba(113,62,86,0.05);
-    }
-
-    div.stButton > button,
-    div.stDownloadButton > button {
-        min-height: 46px;
-
-        border: 0;
-
-        border-radius: 14px;
-
-        color: white;
-
-        font-weight: 750;
-
-        background:
-            linear-gradient(
-                135deg,
-                #8E4669,
-                #B95D86
-            );
-
-        box-shadow:
-            0 7px 18px rgba(142,70,105,0.22);
-    }
-
-    div.stButton > button:hover,
-    div.stDownloadButton > button:hover {
-        color: white;
-
-        background:
-            linear-gradient(
-                135deg,
-                #7C3A5A,
-                #A95076
-            );
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0.45rem;
-
-        background:
-            rgba(255,255,255,0.65);
-
-        padding: 0.35rem;
-
-        border-radius: 16px;
-
-        border: 1px solid var(--line);
-
-        width: fit-content;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        height: 42px;
-
-        padding: 0 1rem;
-
-        border-radius: 12px;
-
-        color: #755665;
-
-        font-weight: 650;
-    }
-
-    .stTabs [aria-selected="true"] {
-        color: white !important;
-
-        background:
-            linear-gradient(
-                135deg,
-                #8E4669,
-                #B95D86
-            ) !important;
-    }
-
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none;
-    }
-
-    @media (max-width: 900px) {
+        :root {
+            --ink: #3d2c35;
+            --muted: #816d77;
+            --plum: #824361;
+            --berry: #aa587b;
+            --rose: #e99db5;
+            --peach: #f8ccb8;
+            --lavender: #dfd2f3;
+            --cream: #fff9f6;
+            --line: #eadde3;
+        }
+
+        .stApp {
+            background:
+                radial-gradient(
+                    circle at 7% 5%,
+                    rgba(248, 204, 184, 0.42),
+                    transparent 24%
+                ),
+                radial-gradient(
+                    circle at 92% 8%,
+                    rgba(223, 210, 243, 0.50),
+                    transparent 25%
+                ),
+                radial-gradient(
+                    circle at 82% 80%,
+                    rgba(233, 157, 181, 0.20),
+                    transparent 22%
+                ),
+                linear-gradient(
+                    180deg,
+                    #fffdfc 0%,
+                    #fff7f9 48%,
+                    #fff9f6 100%
+                );
+        }
 
         .block-container {
-            padding-top: 5.3rem !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
+            max-width: 1240px;
+            padding-top: 5.2rem;
+            padding-bottom: 4rem;
         }
 
-        .hero-shell {
-            padding: 1.45rem 1.25rem;
-            border-radius: 22px;
+        #MainMenu {
+            visibility: hidden;
         }
 
-        .hero-title {
-            font-size: 2.5rem;
+        footer {
+            visibility: hidden;
         }
 
-        .hero-copy {
-            font-size: 0.95rem;
+        h1,
+        h2,
+        h3,
+        p,
+        label {
+            color: var(--ink);
         }
 
-        .step-grid {
-            grid-template-columns:
-                repeat(2, minmax(0, 1fr));
+        div.stButton > button,
+        div.stDownloadButton > button {
+            min-height: 46px;
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-weight: 700;
+            background:
+                linear-gradient(
+                    135deg,
+                    #8b4566,
+                    #be6287
+                );
+            box-shadow:
+                0 8px 20px rgba(139, 69, 102, 0.20);
         }
 
-        .metric-grid {
-            grid-template-columns:
-                repeat(2, minmax(0, 1fr));
+        div.stButton > button:hover,
+        div.stDownloadButton > button:hover {
+            color: white;
+            border: none;
+            background:
+                linear-gradient(
+                    135deg,
+                    #783951,
+                    #aa5277
+                );
         }
 
-        .metric-box:last-child {
-            grid-column: 1 / -1;
+        div[data-testid="stDataFrame"] {
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            overflow: hidden;
+            background: white;
+            box-shadow:
+                0 8px 22px rgba(105, 63, 82, 0.06);
         }
 
         .stTabs [data-baseweb="tab-list"] {
-            width: 100%;
-            overflow-x: auto;
-            flex-wrap: nowrap;
-        }
-    }
-
-    @media (max-width: 520px) {
-
-        .hero-title {
-            font-size: 2.2rem;
+            gap: 0.4rem;
+            padding: 0.35rem;
+            border: 1px solid var(--line);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.68);
         }
 
-        .step-grid {
-            grid-template-columns: 1fr;
+        .stTabs [data-baseweb="tab"] {
+            height: 42px;
+            border-radius: 11px;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            color: #735462;
+            font-weight: 650;
         }
 
-        .metric-grid {
-            gap: 0.65rem;
-
-            grid-template-columns:
-                repeat(2, minmax(0, 1fr));
+        .stTabs [aria-selected="true"] {
+            color: white !important;
+            background:
+                linear-gradient(
+                    135deg,
+                    #8b4566,
+                    #bd6287
+                ) !important;
         }
 
-        .metric-box {
-            min-height: 104px;
+        .stTabs [data-baseweb="tab-highlight"] {
+            display: none;
         }
 
-        .metric-value {
-            font-size: 1.7rem;
-        }
-    }
+        @media (max-width: 800px) {
+            .block-container {
+                padding-top: 5rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
 
+            .stTabs [data-baseweb="tab-list"] {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+        }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # =========================================================
-# DATA CONFIG
+# UI COMPONENTS
 # =========================================================
 
-REQUIRED_COLUMNS = [
-    "record_id",
-    "product_name",
-    "vendor",
-    "product_category",
-    "crypto_module",
-    "algorithm",
-    "certificate_number",
-    "certificate_status",
-    "cmvp_status",
-    "postel_status",
-    "issue_date",
-    "expiry_date",
-    "last_verified",
-]
+def render_hero():
+    st.html(
+        """
+        <div style="
+            position: relative;
+            overflow: hidden;
+            padding: 32px;
+            border-radius: 28px;
+            border: 1px solid rgba(130, 67, 97, 0.13);
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(255,255,255,0.97),
+                    rgba(255,239,244,0.92)
+                );
+            box-shadow:
+                0 18px 42px rgba(110, 62, 84, 0.10);
+            margin-bottom: 14px;
+        ">
 
-REVIEW_DATE = pd.Timestamp.today().normalize()
+            <div style="
+                position: absolute;
+                width: 240px;
+                height: 240px;
+                border-radius: 50%;
+                right: -75px;
+                top: -80px;
+                background:
+                    linear-gradient(
+                        135deg,
+                        rgba(235,157,181,0.42),
+                        rgba(216,196,241,0.48)
+                    );
+            "></div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                display: inline-block;
+                padding: 7px 12px;
+                border-radius: 999px;
+                background: rgba(130,67,97,0.09);
+                color: #824361;
+                font-size: 12px;
+                font-weight: 800;
+                margin-bottom: 16px;
+            ">
+                🌷 PORTFOLIO PROJECT
+            </div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                max-width: 800px;
+                color: #3d2c35;
+                font-size: clamp(38px, 6vw, 64px);
+                line-height: 1.02;
+                font-weight: 800;
+                letter-spacing: -2px;
+            ">
+                Certification Review Tracker
+            </div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                max-width: 760px;
+                margin-top: 17px;
+                color: #816d77;
+                font-size: 16px;
+                line-height: 1.7;
+            ">
+                A practical tool for checking certification records,
+                finding data that needs attention,
+                and organizing records for further review.
+            </div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 18px;
+            ">
+
+                <span style="
+                    padding: 7px 11px;
+                    border-radius: 999px;
+                    background: white;
+                    border: 1px solid #eadde3;
+                    color: #674d59;
+                    font-size: 13px;
+                    font-weight: 650;
+                ">
+                    Data validation
+                </span>
+
+                <span style="
+                    padding: 7px 11px;
+                    border-radius: 999px;
+                    background: white;
+                    border: 1px solid #eadde3;
+                    color: #674d59;
+                    font-size: 13px;
+                    font-weight: 650;
+                ">
+                    Compliance review
+                </span>
+
+                <span style="
+                    padding: 7px 11px;
+                    border-radius: 999px;
+                    background: white;
+                    border: 1px solid #eadde3;
+                    color: #674d59;
+                    font-size: 13px;
+                    font-weight: 650;
+                ">
+                    Administrative workflow
+                </span>
+
+                <span style="
+                    padding: 7px 11px;
+                    border-radius: 999px;
+                    background: white;
+                    border: 1px solid #eadde3;
+                    color: #674d59;
+                    font-size: 13px;
+                    font-weight: 650;
+                ">
+                    Python + Streamlit
+                </span>
+
+            </div>
+        </div>
+        """
+    )
+
+
+def render_section(kicker, title, description):
+    st.html(
+        f"""
+        <div style="
+            margin-top: 25px;
+            margin-bottom: 13px;
+        ">
+
+            <div style="
+                color: #aa587b;
+                font-size: 12px;
+                font-weight: 800;
+                letter-spacing: 1.4px;
+                margin-bottom: 7px;
+            ">
+                {kicker.upper()}
+            </div>
+
+            <div style="
+                color: #3d2c35;
+                font-size: 31px;
+                line-height: 1.15;
+                font-weight: 800;
+                letter-spacing: -0.8px;
+            ">
+                {title}
+            </div>
+
+            <div style="
+                margin-top: 8px;
+                color: #816d77;
+                font-size: 15px;
+                line-height: 1.65;
+                max-width: 850px;
+            ">
+                {description}
+            </div>
+
+        </div>
+        """
+    )
+
+
+def render_workflow():
+    st.html(
+        """
+        <div style="
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+            margin: 16px 0 24px 0;
+        ">
+
+            <div style="
+                padding: 18px;
+                border-radius: 20px;
+                background: rgba(255,255,255,0.88);
+                border: 1px solid #eadde3;
+                box-shadow: 0 8px 22px rgba(104,64,82,0.06);
+            ">
+                <div style="
+                    color: #b45d82;
+                    font-size: 12px;
+                    font-weight: 800;
+                ">
+                    01
+                </div>
+
+                <div style="
+                    margin-top: 7px;
+                    color: #3d2c35;
+                    font-size: 16px;
+                    font-weight: 750;
+                ">
+                    Load records
+                </div>
+
+                <div style="
+                    margin-top: 5px;
+                    color: #816d77;
+                    font-size: 13px;
+                    line-height: 1.5;
+                ">
+                    Use the sample data or upload another file.
+                </div>
+            </div>
+
+            <div style="
+                padding: 18px;
+                border-radius: 20px;
+                background: rgba(255,255,255,0.88);
+                border: 1px solid #eadde3;
+                box-shadow: 0 8px 22px rgba(104,64,82,0.06);
+            ">
+                <div style="
+                    color: #b45d82;
+                    font-size: 12px;
+                    font-weight: 800;
+                ">
+                    02
+                </div>
+
+                <div style="
+                    margin-top: 7px;
+                    color: #3d2c35;
+                    font-size: 16px;
+                    font-weight: 750;
+                ">
+                    Check data
+                </div>
+
+                <div style="
+                    margin-top: 5px;
+                    color: #816d77;
+                    font-size: 13px;
+                    line-height: 1.5;
+                ">
+                    Find missing, duplicate, and inconsistent values.
+                </div>
+            </div>
+
+            <div style="
+                padding: 18px;
+                border-radius: 20px;
+                background: rgba(255,255,255,0.88);
+                border: 1px solid #eadde3;
+                box-shadow: 0 8px 22px rgba(104,64,82,0.06);
+            ">
+                <div style="
+                    color: #b45d82;
+                    font-size: 12px;
+                    font-weight: 800;
+                ">
+                    03
+                </div>
+
+                <div style="
+                    margin-top: 7px;
+                    color: #3d2c35;
+                    font-size: 16px;
+                    font-weight: 750;
+                ">
+                    Review issues
+                </div>
+
+                <div style="
+                    margin-top: 5px;
+                    color: #816d77;
+                    font-size: 13px;
+                    line-height: 1.5;
+                ">
+                    Focus on records that may need another review.
+                </div>
+            </div>
+
+            <div style="
+                padding: 18px;
+                border-radius: 20px;
+                background: rgba(255,255,255,0.88);
+                border: 1px solid #eadde3;
+                box-shadow: 0 8px 22px rgba(104,64,82,0.06);
+            ">
+                <div style="
+                    color: #b45d82;
+                    font-size: 12px;
+                    font-weight: 800;
+                ">
+                    04
+                </div>
+
+                <div style="
+                    margin-top: 7px;
+                    color: #3d2c35;
+                    font-size: 16px;
+                    font-weight: 750;
+                ">
+                    Export results
+                </div>
+
+                <div style="
+                    margin-top: 5px;
+                    color: #816d77;
+                    font-size: 13px;
+                    line-height: 1.5;
+                ">
+                    Download the checked records as a CSV file.
+                </div>
+            </div>
+
+        </div>
+        """
+    )
+
+
+def render_check_pills():
+    st.html(
+        """
+        <div style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0 12px 0;
+        ">
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #fff0f5;
+                border: 1px solid #f1d7df;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Missing fields
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #fff6ef;
+                border: 1px solid #f1dfd2;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Duplicate certificate
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #f4effc;
+                border: 1px solid #e3d8f4;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Expired record
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #fff0f5;
+                border: 1px solid #f1d7df;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Status mismatch
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #fff6ef;
+                border: 1px solid #f1dfd2;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                CMVP status
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #f4effc;
+                border: 1px solid #e3d8f4;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Postel status
+            </span>
+
+            <span style="
+                padding: 7px 10px;
+                border-radius: 999px;
+                background: #fff0f5;
+                border: 1px solid #f1d7df;
+                color: #795462;
+                font-size: 12px;
+                font-weight: 700;
+            ">
+                Revoked certificate
+            </span>
+
+        </div>
+        """
+    )
+
+
+def make_metric_card(label, value, caption, accent):
+    return f"""
+        <div style="
+            position: relative;
+            overflow: hidden;
+            min-height: 118px;
+            padding: 18px;
+            border-radius: 21px;
+            background: rgba(255,255,255,0.91);
+            border: 1px solid #eadde3;
+            box-shadow: 0 9px 22px rgba(104,64,82,0.065);
+        ">
+
+            <div style="
+                position: absolute;
+                width: 64px;
+                height: 64px;
+                border-radius: 50%;
+                right: -18px;
+                top: -18px;
+                background: {accent};
+                opacity: 0.55;
+            "></div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                color: #8b7580;
+                font-size: 12px;
+                font-weight: 650;
+            ">
+                {label}
+            </div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                margin-top: 8px;
+                color: #7b4061;
+                font-size: 31px;
+                line-height: 1;
+                font-weight: 800;
+            ">
+                {value}
+            </div>
+
+            <div style="
+                position: relative;
+                z-index: 2;
+                margin-top: 9px;
+                color: #9a8590;
+                font-size: 11px;
+            ">
+                {caption}
+            </div>
+
+        </div>
+    """
+
+
+def render_insight_bar(label, value, maximum):
+    width = 0 if maximum == 0 else value / maximum * 100
+
+    st.html(
+        f"""
+        <div style="
+            padding: 16px;
+            border-radius: 18px;
+            border: 1px solid #eadde3;
+            background: rgba(255,255,255,0.88);
+            margin-bottom: 9px;
+            box-shadow: 0 7px 18px rgba(104,64,82,0.045);
+        ">
+
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                gap: 10px;
+                margin-bottom: 8px;
+            ">
+
+                <div style="
+                    color: #49363f;
+                    font-size: 13px;
+                    font-weight: 700;
+                ">
+                    {label}
+                </div>
+
+                <div style="
+                    color: #934c70;
+                    font-size: 13px;
+                    font-weight: 800;
+                ">
+                    {value:,}
+                </div>
+
+            </div>
+
+            <div style="
+                height: 9px;
+                border-radius: 999px;
+                background: #f0e6eb;
+                overflow: hidden;
+            ">
+
+                <div style="
+                    width: {width:.1f}%;
+                    height: 100%;
+                    border-radius: 999px;
+                    background:
+                        linear-gradient(
+                            90deg,
+                            #ad587d,
+                            #e58eab,
+                            #ccb3ec
+                        );
+                "></div>
+
+            </div>
+
+        </div>
+        """
+    )
 
 
 # =========================================================
@@ -735,7 +738,7 @@ REVIEW_DATE = pd.Timestamp.today().normalize()
 # =========================================================
 
 @st.cache_data
-def build_sample_data(n=1200):
+def build_sample_data(total_rows=1200):
 
     random.seed(42)
 
@@ -785,17 +788,13 @@ def build_sample_data(n=1200):
         "LinkGuard",
     ]
 
-    base_start = (
-        datetime.now()
-        - timedelta(days=1100)
-    )
-
-    review_date = datetime.now()
+    today = datetime.now()
+    start_date = today - timedelta(days=1000)
 
     rows = []
     certificate_pool = []
 
-    for i in range(1, n + 1):
+    for i in range(1, total_rows + 1):
 
         vendor = random.choice(vendors)
         category = random.choice(categories)
@@ -803,35 +802,26 @@ def build_sample_data(n=1200):
         algorithm = random.choice(algorithms)
 
         issue_date = (
-            base_start
+            start_date
             + timedelta(
-                days=random.randint(
-                    0,
-                    900,
-                )
+                days=random.randint(0, 820)
             )
         )
 
         expiry_date = (
             issue_date
             + timedelta(
-                days=random.randint(
-                    420,
-                    950,
-                )
+                days=random.randint(550, 1050)
             )
         )
 
-        possible_verify_days = max(
+        max_verify_days = max(
             30,
             min(
-                500,
+                430,
                 max(
                     30,
-                    (
-                        review_date
-                        - issue_date
-                    ).days,
+                    (today - issue_date).days,
                 ),
             ),
         )
@@ -841,7 +831,7 @@ def build_sample_data(n=1200):
             + timedelta(
                 days=random.randint(
                     20,
-                    possible_verify_days,
+                    max_verify_days,
                 )
             )
         )
@@ -861,9 +851,9 @@ def build_sample_data(n=1200):
                 "Not Found",
             ],
             weights=[
-                88,
-                8,
-                4,
+                91,
+                6,
+                3,
             ],
         )[0]
 
@@ -874,61 +864,59 @@ def build_sample_data(n=1200):
                 "Not Found",
             ],
             weights=[
-                87,
-                9,
-                4,
+                90,
+                7,
+                3,
             ],
         )[0]
 
         certificate_status = (
             "Active"
-            if expiry_date >= review_date
+            if expiry_date >= today
             else "Expired"
         )
 
-        issue_roll = random.random()
+        problem = random.random()
 
-        if issue_roll < 0.025 and i > 15:
+        if problem < 0.020 and i > 20:
 
-            certificate_number = (
-                random.choice(
-                    certificate_pool[:-1]
-                )
+            certificate_number = random.choice(
+                certificate_pool[:-1]
             )
 
-        elif issue_roll < 0.050:
+        elif problem < 0.040:
+
+            vendor = None
+
+        elif problem < 0.060:
+
+            algorithm = None
+
+        elif problem < 0.080:
 
             cmvp_status = None
 
-        elif issue_roll < 0.075:
+        elif problem < 0.100:
 
             postel_status = None
 
-        elif issue_roll < 0.095:
+        elif problem < 0.120:
 
             expiry_date = (
-                review_date
+                today
                 - timedelta(
                     days=random.randint(
                         1,
-                        180,
+                        150,
                     )
                 )
             )
 
             certificate_status = "Active"
 
-        elif issue_roll < 0.110:
+        elif problem < 0.135:
 
             certificate_status = "Revoked"
-
-        elif issue_roll < 0.125:
-
-            vendor = None
-
-        elif issue_roll < 0.140:
-
-            algorithm = None
 
         product_name = (
             f"{random.choice(product_prefixes)} "
@@ -981,47 +969,30 @@ def build_sample_data(n=1200):
     return pd.DataFrame(rows)
 
 
-@st.cache_data
-def load_sample_data():
-
-    possible_paths = [
-        Path(
-            "certification_review_sample_data.xlsx"
-        ),
-        Path(
-            "sample_data/"
-            "certification_review_sample_data.xlsx"
-        ),
-    ]
-
-    for path in possible_paths:
-
-        if path.exists():
-
-            try:
-
-                return pd.read_excel(
-                    path,
-                    sheet_name=
-                    "certification_records",
-                )
-
-            except Exception:
-
-                pass
-
-    return build_sample_data()
-
-
 # =========================================================
 # FILE INPUT
 # =========================================================
 
+REQUIRED_COLUMNS = [
+    "record_id",
+    "product_name",
+    "vendor",
+    "product_category",
+    "crypto_module",
+    "algorithm",
+    "certificate_number",
+    "certificate_status",
+    "cmvp_status",
+    "postel_status",
+    "issue_date",
+    "expiry_date",
+    "last_verified",
+]
+
+
 def read_uploaded_file(uploaded_file):
 
-    file_name = (
-        uploaded_file.name.lower()
-    )
+    file_name = uploaded_file.name.lower()
 
     if file_name.endswith(".csv"):
 
@@ -1031,8 +1002,7 @@ def read_uploaded_file(uploaded_file):
 
     if (
         file_name.endswith(".xlsx")
-        or
-        file_name.endswith(".xls")
+        or file_name.endswith(".xls")
     ):
 
         return pd.read_excel(
@@ -1045,12 +1015,12 @@ def read_uploaded_file(uploaded_file):
 
 
 # =========================================================
-# VALIDATION LOGIC
+# VALIDATION ENGINE
 # =========================================================
 
-def prepare_dates(df):
+def validate_records(df):
 
-    result = df.copy()
+    checked = df.copy()
 
     for column in [
         "issue_date",
@@ -1058,37 +1028,35 @@ def prepare_dates(df):
         "last_verified",
     ]:
 
-        if column in result.columns:
+        checked[column] = pd.to_datetime(
+            checked[column],
+            errors="coerce",
+        )
 
-            result[column] = pd.to_datetime(
-                result[column],
-                errors="coerce",
-            )
-
-    return result
-
-
-def validate_records(df):
-
-    checked = prepare_dates(df)
+    review_date = (
+        pd.Timestamp.today().normalize()
+    )
 
     duplicate_mask = (
-        checked[
-            "certificate_number"
-        ]
+        checked["certificate_number"]
         .astype("string")
-        .duplicated(
-            keep=False
-        )
+        .duplicated(keep=False)
         &
         checked[
             "certificate_number"
         ].notna()
     )
 
-    issue_texts = []
-    review_statuses = []
-    priorities = []
+    issue_results = []
+    status_results = []
+    priority_results = []
+
+    priority_rank = {
+        "Low": 0,
+        "Medium": 1,
+        "High": 2,
+        "Critical": 3,
+    }
 
     required_fields = [
         "vendor",
@@ -1098,35 +1066,22 @@ def validate_records(df):
         "postel_status",
     ]
 
-    priority_rank = {
-        "Low": 0,
-        "Medium": 1,
-        "High": 2,
-        "Critical": 3,
-    }
-
     for index, row in checked.iterrows():
 
         issues = []
-        priority = "Low"
+        current_priority = "Low"
 
-        def raise_priority(
-            new_priority
-        ):
-
-            nonlocal priority
+        def upgrade(target):
+            nonlocal current_priority
 
             if (
-                priority_rank[
-                    new_priority
-                ]
+                priority_rank[target]
                 >
                 priority_rank[
-                    priority
+                    current_priority
                 ]
             ):
-
-                priority = new_priority
+                current_priority = target
 
         missing_fields = []
 
@@ -1136,8 +1091,7 @@ def validate_records(df):
 
             if (
                 pd.isna(value)
-                or
-                str(value).strip() == ""
+                or str(value).strip() == ""
             ):
 
                 missing_fields.append(
@@ -1153,9 +1107,7 @@ def validate_records(df):
                 )
             )
 
-            raise_priority(
-                "High"
-            )
+            upgrade("High")
 
         if duplicate_mask.loc[index]:
 
@@ -1163,9 +1115,7 @@ def validate_records(df):
                 "Duplicate certificate number"
             )
 
-            raise_priority(
-                "High"
-            )
+            upgrade("High")
 
         expiry = row.get(
             "expiry_date"
@@ -1180,39 +1130,31 @@ def validate_records(df):
 
         if pd.notna(expiry):
 
-            if expiry < REVIEW_DATE:
+            if expiry < review_date:
 
                 issues.append(
                     "Certificate expired"
                 )
 
-                raise_priority(
-                    "Critical"
-                )
+                upgrade("Critical")
 
             elif (
                 expiry
                 <=
-                REVIEW_DATE
-                + pd.Timedelta(
-                    days=30
-                )
+                review_date
+                + pd.Timedelta(days=30)
             ):
 
                 issues.append(
                     "Certificate expires within 30 days"
                 )
 
-                raise_priority(
-                    "Medium"
-                )
+                upgrade("Medium")
 
         if (
             pd.notna(expiry)
-            and
-            expiry < REVIEW_DATE
-            and
-            certificate_status.lower()
+            and expiry < review_date
+            and certificate_status.lower()
             == "active"
         ):
 
@@ -1220,9 +1162,7 @@ def validate_records(df):
                 "Status does not match expiry date"
             )
 
-            raise_priority(
-                "Critical"
-            )
+            upgrade("Critical")
 
         cmvp_status = str(
             row.get(
@@ -1250,9 +1190,7 @@ def validate_records(df):
                 f"CMVP {cmvp_status}"
             )
 
-            raise_priority(
-                "High"
-            )
+            upgrade("High")
 
         if (
             postel_status.lower()
@@ -1266,9 +1204,7 @@ def validate_records(df):
                 f"Postel {postel_status}"
             )
 
-            raise_priority(
-                "High"
-            )
+            upgrade("High")
 
         if (
             certificate_status.lower()
@@ -1279,13 +1215,11 @@ def validate_records(df):
                 "Certificate revoked"
             )
 
-            raise_priority(
-                "Critical"
-            )
+            upgrade("Critical")
 
         if issues:
 
-            issue_texts.append(
+            issue_results.append(
                 "; ".join(
                     dict.fromkeys(
                         issues
@@ -1293,35 +1227,35 @@ def validate_records(df):
                 )
             )
 
-            review_statuses.append(
+            status_results.append(
                 "Need Review"
             )
 
         else:
 
-            issue_texts.append(
+            issue_results.append(
                 "No issue found"
             )
 
-            review_statuses.append(
+            status_results.append(
                 "Clear"
             )
 
-        priorities.append(
-            priority
+        priority_results.append(
+            current_priority
         )
 
     checked[
         "review_status"
-    ] = review_statuses
+    ] = status_results
 
     checked[
         "priority"
-    ] = priorities
+    ] = priority_results
 
     checked[
         "issue_found"
-    ] = issue_texts
+    ] = issue_results
 
     return checked
 
@@ -1330,56 +1264,11 @@ def validate_records(df):
 # HERO
 # =========================================================
 
-html(
-    """
-    <div class="hero-shell">
+render_hero()
 
-        <div class="hero-kicker">
-            🌷 Portfolio Project
-        </div>
-
-        <div class="hero-title">
-            Certification Review Tracker
-        </div>
-
-        <div class="hero-copy">
-            A practical tool for checking certification records,
-            finding data that needs attention,
-            and keeping review work easier to follow.
-        </div>
-
-        <div class="hero-tags">
-
-            <span class="hero-tag">
-                Data validation
-            </span>
-
-            <span class="hero-tag">
-                Compliance review
-            </span>
-
-            <span class="hero-tag">
-                Administrative workflow
-            </span>
-
-            <span class="hero-tag">
-                Python + Streamlit
-            </span>
-
-        </div>
-
-    </div>
-    """
-)
-
-
-html(
-    """
-    <div class="soft-note">
-        This portfolio demo uses synthetic records.
-        It does not contain internal or confidential BSSN data.
-    </div>
-    """
+st.caption(
+    "This portfolio demo uses synthetic records. "
+    "It does not contain internal or confidential BSSN data."
 )
 
 
@@ -1387,109 +1276,29 @@ html(
 # WORKFLOW
 # =========================================================
 
-html(
-    """
-    <div class="section-label">
-        Workflow
-    </div>
-
-    <div class="section-title">
-        From raw records to a review queue
-    </div>
-
-    <div class="section-copy">
-        The app checks common data issues first,
-        then groups the records that may need another look.
-    </div>
-
-    <div class="step-grid">
-
-        <div class="step-card">
-            <div class="step-num">
-                01
-            </div>
-
-            <div class="step-name">
-                Load records
-            </div>
-
-            <div class="step-desc">
-                Use the built in sample
-                or upload your own file.
-            </div>
-        </div>
-
-        <div class="step-card">
-            <div class="step-num">
-                02
-            </div>
-
-            <div class="step-name">
-                Check data
-            </div>
-
-            <div class="step-desc">
-                Check missing,
-                duplicate,
-                and inconsistent values.
-            </div>
-        </div>
-
-        <div class="step-card">
-            <div class="step-num">
-                03
-            </div>
-
-            <div class="step-name">
-                Review issues
-            </div>
-
-            <div class="step-desc">
-                Focus on the records
-                that may need another look.
-            </div>
-        </div>
-
-        <div class="step-card">
-            <div class="step-num">
-                04
-            </div>
-
-            <div class="step-name">
-                Export results
-            </div>
-
-            <div class="step-desc">
-                Download the checked
-                records as CSV.
-            </div>
-        </div>
-
-    </div>
-    """
+render_section(
+    "Workflow",
+    "From raw records to a review queue",
+    (
+        "The app checks common data issues first, "
+        "then organizes records that may need another look."
+    ),
 )
 
+render_workflow()
+
 
 # =========================================================
-# INPUT SECTION
+# INPUT
 # =========================================================
 
-html(
-    """
-    <div class="section-label">
-        Input
-    </div>
-
-    <div class="section-title">
-        Choose your data
-    </div>
-
-    <div class="section-copy">
-        The sample data is ready to use,
-        so visitors can try the app
-        without uploading anything.
-    </div>
-    """
+render_section(
+    "Input",
+    "Choose your data",
+    (
+        "Use the built in sample data or upload another dataset "
+        "with the same column structure."
+    ),
 )
 
 
@@ -1509,7 +1318,7 @@ data = None
 
 if source == "Use sample data":
 
-    data = load_sample_data()
+    data = build_sample_data()
 
     st.success(
         f"Sample data ready. "
@@ -1573,7 +1382,7 @@ missing_columns = [
 if missing_columns:
 
     st.error(
-        "These columns are missing: "
+        "Missing required columns: "
         + ", ".join(
             missing_columns
         )
@@ -1586,79 +1395,47 @@ if missing_columns:
 # PREVIEW
 # =========================================================
 
-preview_left, preview_right = st.columns(
-    [1.3, 1]
+preview_left, preview_right = (
+    st.columns(
+        [1.35, 1]
+    )
 )
 
 
 with preview_left:
 
-    st.markdown(
-        "### Quick preview"
+    st.subheader(
+        "Quick preview"
     )
 
     st.dataframe(
-        data.head(8),
+        data.head(7),
         use_container_width=True,
         hide_index=True,
-        height=310,
+        height=300,
     )
 
 
 with preview_right:
 
-    st.markdown(
-        "### What will be checked"
+    st.subheader(
+        "What will be checked"
     )
 
-    html(
-        """
-        <div class="status-row">
-
-            <span class="status-pill">
-                Missing fields
-            </span>
-
-            <span class="status-pill">
-                Duplicate certificate
-            </span>
-
-            <span class="status-pill">
-                Expired records
-            </span>
-
-            <span class="status-pill">
-                Status mismatch
-            </span>
-
-            <span class="status-pill">
-                CMVP status
-            </span>
-
-            <span class="status-pill">
-                Postel status
-            </span>
-
-            <span class="status-pill">
-                Revoked certificate
-            </span>
-
-        </div>
-        """
-    )
+    render_check_pills()
 
     st.caption(
-        "The result is only a portfolio simulation "
+        "The result is a portfolio simulation "
         "and is not an official compliance decision."
     )
 
 
-# =========================================================
-# RUN CHECK
-# =========================================================
+st.write("")
 
-st.markdown("")
 
+# =========================================================
+# CHECK BUTTON
+# =========================================================
 
 if st.button(
     "Check records",
@@ -1666,14 +1443,14 @@ if st.button(
 ):
 
     st.session_state[
-        "checked_data"
+        "checked_results"
     ] = validate_records(
         data
     )
 
 
 if (
-    "checked_data"
+    "checked_results"
     not in st.session_state
 ):
 
@@ -1682,17 +1459,18 @@ if (
 
 result = (
     st.session_state[
-        "checked_data"
-    ]
-    .copy()
+        "checked_results"
+    ].copy()
 )
 
 
 # =========================================================
-# METRICS
+# SUMMARY METRICS
 # =========================================================
 
-total_records = len(result)
+total_records = len(
+    result
+)
 
 clear_records = int(
     (
@@ -1703,7 +1481,7 @@ clear_records = int(
     ).sum()
 )
 
-need_review = int(
+review_records = int(
     (
         result[
             "review_status"
@@ -1730,105 +1508,114 @@ high_records = int(
     ).sum()
 )
 
-clear_rate = percent(
-    clear_records,
-    total_records,
+if total_records > 0:
+
+    clear_rate = (
+        clear_records
+        / total_records
+        * 100
+    )
+
+else:
+
+    clear_rate = 0
+
+
+render_section(
+    "Output",
+    "Review summary",
+    (
+        "A quick look at what passed the checks "
+        "and what still needs attention."
+    ),
 )
 
 
-html(
+metric_cards = (
     """
-    <div class="section-label">
-        Output
-    </div>
-
-    <div class="section-title">
-        Review summary
-    </div>
-
-    <div class="section-copy">
-        A quick look at what passed the checks
-        and what still needs attention.
-    </div>
+    <div style="
+        display: grid;
+        grid-template-columns:
+            repeat(auto-fit, minmax(170px, 1fr));
+        gap: 11px;
+        margin: 16px 0 22px 0;
+    ">
     """
-)
-
-
-metric_html = (
-    '<div class="metric-grid">'
     +
-    metric_card(
+    make_metric_card(
         "Records checked",
         f"{total_records:,}",
         "All loaded records",
+        "#f6c5d6",
     )
     +
-    metric_card(
+    make_metric_card(
         "Clear",
         f"{clear_records:,}",
         "No issue detected",
+        "#dad2f3",
     )
     +
-    metric_card(
+    make_metric_card(
         "Need review",
-        f"{need_review:,}",
+        f"{review_records:,}",
         "At least one issue",
+        "#f7cab6",
     )
     +
-    metric_card(
+    make_metric_card(
         "Clear rate",
         f"{clear_rate:.1f}%",
         "Share of clear records",
+        "#f3bfd0",
     )
     +
-    metric_card(
+    make_metric_card(
         "Critical",
         f"{critical_records:,}",
         "Highest review priority",
+        "#dabfea",
     )
     +
     "</div>"
 )
 
-
-html(metric_html)
-
-
-# =========================================================
-# TABS
-# =========================================================
-
-tab_overview, tab_queue, tab_all = st.tabs(
-    [
-        "Overview",
-        "Review queue",
-        "All records",
-    ]
+st.html(
+    metric_cards
 )
 
 
 # =========================================================
-# OVERVIEW TAB
+# RESULT TABS
 # =========================================================
 
-with tab_overview:
+overview_tab, queue_tab, all_tab = (
+    st.tabs(
+        [
+            "Overview",
+            "Review queue",
+            "All records",
+        ]
+    )
+)
 
-    left, right = st.columns(
-        [1, 1]
+
+# =========================================================
+# OVERVIEW
+# =========================================================
+
+with overview_tab:
+
+    overview_left, overview_right = (
+        st.columns(2)
     )
 
-    with left:
 
-        st.markdown(
-            "### Priority mix"
+    with overview_left:
+
+        st.subheader(
+            "Priority mix"
         )
-
-        priority_order = [
-            "Critical",
-            "High",
-            "Medium",
-            "Low",
-        ]
 
         priority_counts = (
             result[
@@ -1836,12 +1623,17 @@ with tab_overview:
             ]
             .value_counts()
             .reindex(
-                priority_order,
+                [
+                    "Critical",
+                    "High",
+                    "Medium",
+                    "Low",
+                ],
                 fill_value=0,
             )
         )
 
-        maximum = int(
+        maximum_priority = int(
             priority_counts.max()
         )
 
@@ -1849,21 +1641,20 @@ with tab_overview:
             priority_counts.items()
         ):
 
-            html(
-                issue_bar(
-                    label,
-                    int(value),
-                    maximum,
-                )
+            render_insight_bar(
+                label,
+                int(value),
+                maximum_priority,
             )
 
-    with right:
 
-        st.markdown(
-            "### Common review notes"
+    with overview_right:
+
+        st.subheader(
+            "Common review notes"
         )
 
-        issue_series = (
+        issue_counts = (
             result.loc[
                 result[
                     "review_status"
@@ -1875,7 +1666,7 @@ with tab_overview:
             .head(6)
         )
 
-        if issue_series.empty:
+        if issue_counts.empty:
 
             st.success(
                 "No review notes found."
@@ -1884,35 +1675,34 @@ with tab_overview:
         else:
 
             maximum_issue = int(
-                issue_series.max()
+                issue_counts.max()
             )
 
             for label, value in (
-                issue_series.items()
+                issue_counts.items()
             ):
 
-                html(
-                    issue_bar(
-                        label,
-                        int(value),
-                        maximum_issue,
-                    )
+                render_insight_bar(
+                    label,
+                    int(value),
+                    maximum_issue,
                 )
 
+
     st.caption(
-        f"{high_records:,} records "
-        "are currently marked High priority."
+        f"{high_records:,} records are currently "
+        "marked High priority."
     )
 
 
 # =========================================================
-# REVIEW QUEUE TAB
+# REVIEW QUEUE
 # =========================================================
 
-with tab_queue:
+with queue_tab:
 
-    st.markdown(
-        "### Records that need attention"
+    st.subheader(
+        "Records that need attention"
     )
 
     review_data = (
@@ -1926,12 +1716,12 @@ with tab_queue:
     )
 
 
-    filter_a, filter_b, filter_c = (
+    filter_one, filter_two, filter_three = (
         st.columns(3)
     )
 
 
-    with filter_a:
+    with filter_one:
 
         priority_filter = (
             st.multiselect(
@@ -1951,7 +1741,7 @@ with tab_queue:
         )
 
 
-    with filter_b:
+    with filter_two:
 
         category_options = sorted(
             review_data[
@@ -1971,7 +1761,7 @@ with tab_queue:
         )
 
 
-    with filter_c:
+    with filter_three:
 
         vendor_options = sorted(
             review_data[
@@ -2055,7 +1845,7 @@ with tab_queue:
         ],
         use_container_width=True,
         hide_index=True,
-        height=500,
+        height=520,
     )
 
 
@@ -2065,27 +1855,30 @@ with tab_queue:
 
 
 # =========================================================
-# ALL RECORDS TAB
+# ALL RECORDS
 # =========================================================
 
-with tab_all:
+with all_tab:
 
-    st.markdown(
-        "### Checked records"
+    st.subheader(
+        "Checked records"
     )
-
 
     st.dataframe(
         result,
         use_container_width=True,
         hide_index=True,
-        height=520,
+        height=540,
     )
 
 
     csv_data = (
-        to_csv_bytes(
-            result
+        result
+        .to_csv(
+            index=False
+        )
+        .encode(
+            "utf-8-sig"
         )
     )
 
@@ -2094,7 +1887,7 @@ with tab_all:
         "Download checked data",
         data=csv_data,
         file_name=
-        "certification_review_results.csv",
+            "certification_review_results.csv",
         mime="text/csv",
         use_container_width=True,
     )
@@ -2104,9 +1897,8 @@ with tab_all:
 # FOOTER
 # =========================================================
 
-st.markdown("")
+st.write("")
 
 st.caption(
-    "Built as a portfolio project "
-    "using synthetic certification data."
+    "Portfolio project using synthetic certification data."
 )
